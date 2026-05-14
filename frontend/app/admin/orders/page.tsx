@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 
 type OrderItem = {
   id: number;
@@ -44,6 +43,7 @@ export default function AdminOrdersPage() {
   const [filter, setFilter] = useState("all");
   const [loading, setLoading] = useState(true);
   const [updatingOrderId, setUpdatingOrderId] = useState<number | null>(null);
+  const [downloadingReport, setDownloadingReport] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
 
@@ -160,6 +160,69 @@ export default function AdminOrdersPage() {
       setErrorMessage(error.message || "Failed to update order status.");
     } finally {
       setUpdatingOrderId(null);
+    }
+  };
+
+  const handleDownloadMonthlyReport = async () => {
+    try {
+      setDownloadingReport(true);
+      setErrorMessage("");
+      setSuccessMessage("");
+
+      const accessToken = localStorage.getItem("accessToken");
+
+      if (!accessToken) {
+        setErrorMessage("You must login as an admin to download the report.");
+        return;
+      }
+
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = now.getMonth() + 1;
+
+      const response = await fetch(
+        `${API_BASE_URL}/orders/admin/monthly-report/?year=${year}&month=${month}`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        }
+      );
+
+      if (response.status === 401) {
+        throw new Error("Unauthorized. Please login again.");
+      }
+
+      if (response.status === 403) {
+        throw new Error("Permission denied. Please login using an admin account.");
+      }
+
+      if (!response.ok) {
+        throw new Error("Failed to download monthly sales report.");
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `SARN_Monthly_Sales_Report_${year}_${String(month).padStart(
+        2,
+        "0"
+      )}.pdf`;
+
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+
+      window.URL.revokeObjectURL(url);
+
+      setSuccessMessage("Monthly sales report downloaded successfully.");
+    } catch (error: any) {
+      setErrorMessage(error.message || "Failed to download monthly sales report.");
+    } finally {
+      setDownloadingReport(false);
     }
   };
 
@@ -302,11 +365,24 @@ export default function AdminOrdersPage() {
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold text-[#2C302E]">Orders</h1>
-        <p className="text-[#2C302E]/70 mt-1">
-          Approve, cancel, and mark customer orders as delivered.
-        </p>
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-[#2C302E]">Orders</h1>
+          <p className="text-[#2C302E]/70 mt-1">
+            Approve, cancel, and mark customer orders as delivered.
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={handleDownloadMonthlyReport}
+          disabled={downloadingReport}
+          className="rounded-xl bg-[#2C302E] px-5 py-3 text-sm font-semibold text-white hover:bg-[#8DA399] transition disabled:opacity-60 disabled:cursor-not-allowed"
+        >
+          {downloadingReport
+            ? "Downloading Report..."
+            : "Download Monthly Sales Report"}
+        </button>
       </div>
 
       {successMessage && (

@@ -1,6 +1,7 @@
 from django.urls import path
 
 from .views import (
+    AdminMonthlySalesReportView,
     AdminOrderListView,
     AdminOrderStatusUpdateView,
     MyOrderListView,
@@ -16,5 +17,10 @@ urlpatterns = [
         "admin/<int:pk>/status/",
         AdminOrderStatusUpdateView.as_view(),
         name="admin-order-status-update",
+    ),
+    path(
+        "admin/monthly-report/",
+        AdminMonthlySalesReportView.as_view(),
+        name="admin-monthly-sales-report",
     ),
 ]

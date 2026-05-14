@@ -116,17 +116,6 @@ export default function Navbar() {
             Shop All
           </Link>
 
-          <Link
-            href="/about"
-            className={`text-sm font-medium transition-colors ${
-              isActive("/about")
-                ? "text-[#8DA399]"
-                : "text-[#2C302E]/70 hover:text-[#8DA399]"
-            }`}
-          >
-            Our Story
-          </Link>
-
           {authChecked && isAdmin && (
             <Link
               href="/admin/dashboard"
