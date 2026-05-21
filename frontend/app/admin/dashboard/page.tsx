@@ -11,7 +11,7 @@ import {
   ClockIcon,
 } from "@heroicons/react/24/outline";
 
-import { getProducts, type Product } from "@/lib/api";
+import { getApiBaseUrl, getProducts, type Product } from "@/lib/api";
 
 type OrderItem = {
   id: number;
@@ -38,9 +38,6 @@ type Order = {
   updated_at: string;
 };
 
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000/api";
-
 export default function AdminDashboardPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
@@ -62,7 +59,7 @@ export default function AdminDashboardPage() {
 
         const [productsData, ordersResponse] = await Promise.all([
           getProducts(),
-          fetch(`${API_BASE_URL}/orders/admin/all/`, {
+          fetch(`${getApiBaseUrl()}/orders/admin/all/`, {
             method: "GET",
             headers: {
               Authorization: `Bearer ${accessToken}`,

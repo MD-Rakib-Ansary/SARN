@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 
+import { getApiBaseUrl } from "@/lib/api";
+
 type OrderItem = {
   id: number;
   product: number | null;
@@ -26,9 +28,6 @@ type Order = {
   created_at: string;
   updated_at: string;
 };
-
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000/api";
 
 const ORDER_STATUSES = [
   "pending",
@@ -60,7 +59,7 @@ export default function AdminOrdersPage() {
         return;
       }
 
-      const response = await fetch(`${API_BASE_URL}/orders/admin/all/`, {
+      const response = await fetch(`${getApiBaseUrl()}/orders/admin/all/`, {
         method: "GET",
         headers: {
           Authorization: `Bearer ${accessToken}`,
@@ -114,7 +113,7 @@ export default function AdminOrdersPage() {
       setSuccessMessage("");
 
       const response = await fetch(
-        `${API_BASE_URL}/orders/admin/${orderId}/status/`,
+        `${getApiBaseUrl()}/orders/admin/${orderId}/status/`,
         {
           method: "PATCH",
           headers: {
@@ -181,7 +180,7 @@ export default function AdminOrdersPage() {
       const month = now.getMonth() + 1;
 
       const response = await fetch(
-        `${API_BASE_URL}/orders/admin/monthly-report/?year=${year}&month=${month}`,
+        `${getApiBaseUrl()}/orders/admin/monthly-report/?year=${year}&month=${month}`,
         {
           method: "GET",
           headers: {

@@ -105,6 +105,8 @@ export default function Navbar() {
             Home
           </Link>
 
+          
+
           <Link
             href="/products"
             className={`text-sm font-medium transition-colors ${

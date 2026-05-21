@@ -9,10 +9,7 @@ import {
   TrashIcon,
 } from "@heroicons/react/24/outline";
 
-import { getProducts, type Product } from "@/lib/api";
-
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000/api";
+import { getApiBaseUrl, getProducts, type Product } from "@/lib/api";
 
 export default function AdminProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -64,7 +61,7 @@ export default function AdminProductsPage() {
       setSuccessMessage("");
 
       const response = await fetch(
-        `${API_BASE_URL}/products/admin/${product.id}/delete/`,
+        `${getApiBaseUrl()}/products/admin/${product.id}/delete/`,
         {
           method: "DELETE",
           headers: {

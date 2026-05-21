@@ -1,5 +1,23 @@
-const API_BASE_URL =
+const DEFAULT_API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000/api";
+
+export function getApiBaseUrl() {
+  if (typeof window === "undefined") {
+    return DEFAULT_API_BASE_URL;
+  }
+
+  const { hostname } = window.location;
+  const isLanFrontend = hostname !== "localhost" && hostname !== "127.0.0.1";
+  const isLocalApi =
+    DEFAULT_API_BASE_URL.includes("127.0.0.1") ||
+    DEFAULT_API_BASE_URL.includes("localhost");
+
+  if (isLanFrontend && isLocalApi) {
+    return `http://${hostname}:8000/api`;
+  }
+
+  return DEFAULT_API_BASE_URL;
+}
 
 export type Product = {
   id: number;
@@ -18,7 +36,7 @@ export type Product = {
 };
 
 export async function getProducts(): Promise<Product[]> {
-  const response = await fetch(`${API_BASE_URL}/products/`, {
+  const response = await fetch(`${getApiBaseUrl()}/products/`, {
     cache: "no-store",
   });
 
@@ -30,7 +48,7 @@ export async function getProducts(): Promise<Product[]> {
 }
 
 export async function getProduct(id: string | number): Promise<Product> {
-  const response = await fetch(`${API_BASE_URL}/products/${id}/`, {
+  const response = await fetch(`${getApiBaseUrl()}/products/${id}/`, {
     cache: "no-store",
   });
 
@@ -47,7 +65,7 @@ export async function registerUser(data: {
   password: string;
   password2: string;
 }) {
-  const response = await fetch(`${API_BASE_URL}/accounts/register/`, {
+  const response = await fetch(`${getApiBaseUrl()}/accounts/register/`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -68,7 +86,7 @@ export async function loginUser(data: {
   username: string;
   password: string;
 }) {
-  const response = await fetch(`${API_BASE_URL}/token/`, {
+  const response = await fetch(`${getApiBaseUrl()}/token/`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -86,7 +104,7 @@ export async function loginUser(data: {
 }
 
 export async function createOrder(data: any) {
-  const response = await fetch(`${API_BASE_URL}/orders/create/`, {
+  const response = await fetch(`${getApiBaseUrl()}/orders/create/`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

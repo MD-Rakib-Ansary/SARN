@@ -2,16 +2,16 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 
-import { loginUser } from "@/lib/api";
+import { getApiBaseUrl, loginUser } from "@/lib/api";
 
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000/api";
+type LoginError = {
+  detail?: string;
+  message?: string;
+  non_field_errors?: string[];
+};
 
 export default function LoginPage() {
-  const router = useRouter();
-
   const [formData, setFormData] = useState({
     username: "",
     password: "",
@@ -31,16 +31,24 @@ export default function LoginPage() {
     setSuccessMessage("");
   };
 
-  const getReadableError = (error: any) => {
-    if (error?.detail) return error.detail;
-    if (error?.message) return error.message;
+  const getReadableError = (error: unknown) => {
+    if (typeof error === "object" && error !== null) {
+      const apiError = error as LoginError;
+
+      if (apiError.detail) return apiError.detail;
+      if (apiError.message) return apiError.message;
+      if (apiError.non_field_errors?.length) {
+        return apiError.non_field_errors[0];
+      }
+    }
+
     if (typeof error === "string") return error;
 
     return "Login failed. Please check your username and password.";
   };
 
   const fetchCurrentUser = async (accessToken: string) => {
-    const response = await fetch(`${API_BASE_URL}/accounts/me/`, {
+    const response = await fetch(`${getApiBaseUrl()}/accounts/me/`, {
       method: "GET",
       headers: {
         Authorization: `Bearer ${accessToken}`,
@@ -87,13 +95,9 @@ export default function LoginPage() {
       );
 
       setTimeout(() => {
-        if (isAdmin) {
-          router.push("/admin/dashboard");
-        } else {
-          router.push("/");
-        }
+        window.location.assign(isAdmin ? "/admin/dashboard" : "/");
       }, 800);
-    } catch (error: any) {
+    } catch (error: unknown) {
       setErrorMessage(getReadableError(error));
     } finally {
       setLoading(false);
@@ -124,7 +128,7 @@ export default function LoginPage() {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form method="post" onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-[#2C302E] mb-2">
                 Username

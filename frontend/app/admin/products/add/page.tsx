@@ -4,6 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
+import { getApiBaseUrl } from "@/lib/api";
+
 type ProductFormData = {
   name: string;
   description: string;
@@ -14,9 +16,6 @@ type ProductFormData = {
   is_featured: boolean;
   image: File | null;
 };
-
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000/api";
 
 export default function AddProductPage() {
   const router = useRouter();
@@ -143,7 +142,7 @@ export default function AddProductPage() {
         payload.append("image", formData.image);
       }
 
-      const response = await fetch(`${API_BASE_URL}/products/admin/create/`, {
+      const response = await fetch(`${getApiBaseUrl()}/products/admin/create/`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${accessToken}`,

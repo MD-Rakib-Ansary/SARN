@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+*.pyo
+*.log
+
+backend/venv/
+frontend/node_modules/
+frontend/.next/
+frontend/.turbo/
+
+.env
+.env.local

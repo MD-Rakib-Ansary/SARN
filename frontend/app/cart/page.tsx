@@ -239,8 +239,8 @@ export default function CartPage() {
           </div>
 
           <div className="lg:w-1/3">
-            <div className="bg-white rounded-3xl shadow-sm border border-[#EFEBE4] p-8 sticky top-24">
-              <h2 className="text-xl font-serif text-[#2C302E] mb-6 text-left">
+            <div className="bg-white rounded-3xl shadow-md border border-[#EFEBE4] p-8 sticky top-24">
+              <h2 className="text-xl font-serif text-blue-500 mb-6 text-left">
                 Order Summary
               </h2>
 

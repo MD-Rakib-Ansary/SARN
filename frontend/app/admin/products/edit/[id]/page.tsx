@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 
-import { getProduct, type Product } from "@/lib/api";
+import { getApiBaseUrl, getProduct, type Product } from "@/lib/api";
 
 type ProductFormData = {
   name: string;
@@ -16,9 +16,6 @@ type ProductFormData = {
   is_featured: boolean;
   image: File | null;
 };
-
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000/api";
 
 export default function EditProductPage() {
   const params = useParams();
@@ -189,7 +186,7 @@ export default function EditProductPage() {
       }
 
       const response = await fetch(
-        `${API_BASE_URL}/products/admin/${productId}/update/`,
+        `${getApiBaseUrl()}/products/admin/${productId}/update/`,
         {
           method: "PATCH",
           headers: {
