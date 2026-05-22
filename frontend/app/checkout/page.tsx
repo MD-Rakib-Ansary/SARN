@@ -9,7 +9,7 @@ import {
 } from "@heroicons/react/24/outline";
 
 import { useCart } from "@/context/CartContext";
-import { createOrder } from "@/lib/api";
+import { createOrder, downloadOrderPayslip } from "@/lib/api";
 
 export default function CheckoutPage() {
   const { cart, cartTotal, clearCart } = useCart();
@@ -19,6 +19,9 @@ export default function CheckoutPage() {
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [orderId, setOrderId] = useState<number | null>(null);
+
+  const [payslipLoading, setPayslipLoading] = useState(false);
+  const [payslipError, setPayslipError] = useState("");
 
   const [formData, setFormData] = useState({
     full_name: "",
@@ -99,6 +102,27 @@ export default function CheckoutPage() {
     return "Order failed. Please check your cart and customer information.";
   };
 
+  const handleDownloadPayslip = async () => {
+    if (!orderId) {
+      setPayslipError(
+        "Order ID not found. Please check your order from My Orders later."
+      );
+      return;
+    }
+
+    try {
+      setPayslipLoading(true);
+      setPayslipError("");
+
+      await downloadOrderPayslip(orderId);
+    } catch (error: any) {
+      console.error(error);
+      setPayslipError(getReadableError(error));
+    } finally {
+      setPayslipLoading(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -125,6 +149,7 @@ export default function CheckoutPage() {
     try {
       setLoading(true);
       setErrorMessage("");
+      setPayslipError("");
 
       const result = await createOrder(orderPayload);
 
@@ -166,17 +191,34 @@ export default function CheckoutPage() {
         </p>
 
         {orderId && (
-          <p className="text-sm text-[#2C302E]/60 mb-8">
+          <p className="text-sm text-[#2C302E]/60 mb-6">
             Order ID: #{orderId}
           </p>
         )}
 
-        <Link
-          href="/"
-          className="bg-[#2C302E] text-white px-10 py-3.5 rounded-full font-bold hover:bg-black transition shadow-lg"
-        >
-          Return to Boutique
-        </Link>
+        {payslipError && (
+          <div className="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 max-w-md">
+            {payslipError}
+          </div>
+        )}
+
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+          <button
+            type="button"
+            onClick={handleDownloadPayslip}
+            disabled={!orderId || payslipLoading}
+            className="bg-[#8DA399] text-white px-10 py-3.5 rounded-full font-bold hover:bg-[#2C302E] transition shadow-lg disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            {payslipLoading ? "Preparing Payslip..." : "Download Payslip"}
+          </button>
+
+          <Link
+            href="/"
+            className="bg-[#2C302E] text-white px-10 py-3.5 rounded-full font-bold hover:bg-black transition shadow-lg"
+          >
+            Return to Boutique
+          </Link>
+        </div>
       </div>
     );
   }

@@ -131,3 +131,54 @@ export async function createOrder(data: any) {
 
   return result;
 }
+
+export async function downloadOrderPayslip(orderId: number | string) {
+  const accessToken =
+    typeof window !== "undefined"
+      ? localStorage.getItem("accessToken")
+      : null;
+
+  if (!accessToken) {
+    throw {
+      detail: "Please login before downloading the payslip.",
+    };
+  }
+
+  const response = await fetch(
+    `${getApiBaseUrl()}/orders/my-orders/${orderId}/payslip/`,
+    {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    }
+  );
+
+  if (!response.ok) {
+    let message = "Failed to download payslip.";
+
+    try {
+      const errorData = await response.json();
+      message = errorData.detail || message;
+    } catch {
+      // The PDF endpoint may not return JSON on every error.
+    }
+
+    throw {
+      detail: message,
+    };
+  }
+
+  const blob = await response.blob();
+  const url = window.URL.createObjectURL(blob);
+
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `sarn-order-payslip-${orderId}.pdf`;
+
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+
+  window.URL.revokeObjectURL(url);
+}

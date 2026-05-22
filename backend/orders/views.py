@@ -1,4 +1,6 @@
 from calendar import month_name
+from decimal import Decimal
+from html import escape
 from io import BytesIO
 
 from django.http import HttpResponse
@@ -16,6 +18,7 @@ from reportlab.platypus import (
 )
 
 from rest_framework import generics, permissions
+from rest_framework.exceptions import PermissionDenied, NotFound
 from rest_framework.views import APIView
 
 from .models import Order
@@ -36,11 +39,15 @@ class MyOrderListView(generics.ListAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        return Order.objects.filter(user=self.request.user)
+        return (
+            Order.objects.filter(user=self.request.user)
+            .prefetch_related("items")
+            .order_by("-created_at")
+        )
 
 
 class AdminOrderListView(generics.ListAPIView):
-    queryset = Order.objects.all()
+    queryset = Order.objects.all().prefetch_related("items")
     serializer_class = OrderListSerializer
     permission_classes = [permissions.IsAdminUser]
 
@@ -51,8 +58,183 @@ class AdminOrderStatusUpdateView(generics.UpdateAPIView):
     permission_classes = [permissions.IsAdminUser]
 
 
+class OrderPayslipDownloadView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_order(self, request, pk):
+        try:
+            order = Order.objects.prefetch_related("items").get(pk=pk)
+        except Order.DoesNotExist:
+            raise NotFound("Order not found.")
+
+        if not request.user.is_staff and order.user_id != request.user.id:
+            raise PermissionDenied("You are not allowed to download this payslip.")
+
+        return order
+
+    def get_delivery_charge(self, product_subtotal):
+        """
+        Delivery rule:
+        - More than BDT 2000 = free delivery
+        - BDT 2000 or below = BDT 120 delivery charge
+        """
+        if product_subtotal > Decimal("2000.00"):
+            return Decimal("0.00")
+
+        return Decimal("120.00")
+
+    def get(self, request, pk):
+        order = self.get_order(request, pk)
+
+        product_subtotal = order.total_amount
+        delivery_charge = self.get_delivery_charge(product_subtotal)
+        grand_total = product_subtotal + delivery_charge
+
+        buffer = BytesIO()
+
+        doc = SimpleDocTemplate(
+            buffer,
+            pagesize=A4,
+            rightMargin=35,
+            leftMargin=35,
+            topMargin=35,
+            bottomMargin=35,
+        )
+
+        styles = getSampleStyleSheet()
+        elements = []
+
+        title = "SARN - Order Payslip"
+        elements.append(Paragraph(title, styles["Title"]))
+        elements.append(Spacer(1, 8))
+
+        subtitle = "SARN - Shop Authentic Refined Network"
+        elements.append(Paragraph(subtitle, styles["Normal"]))
+        elements.append(Spacer(1, 18))
+
+        order_date = timezone.localtime(order.created_at).strftime(
+            "%Y-%m-%d %I:%M %p"
+        )
+
+        order_info = f"""
+        <b>Order ID:</b> #{order.id}<br/>
+        <b>Order Date:</b> {order_date}<br/>
+        <b>Payment Method:</b> {escape(order.get_payment_method_display())}<br/>
+        """
+        elements.append(Paragraph(order_info, styles["Normal"]))
+        elements.append(Spacer(1, 14))
+
+        customer_info = f"""
+        <b>Customer Name:</b> {escape(order.full_name)}<br/>
+        <b>Email:</b> {escape(order.email)}<br/>
+        <b>Phone:</b> {escape(order.phone)}<br/>
+        <b>City:</b> {escape(order.city)}<br/>
+        <b>Address:</b> {escape(order.address)}<br/>
+        """
+        elements.append(Paragraph(customer_info, styles["Normal"]))
+        elements.append(Spacer(1, 18))
+
+        table_data = [
+            [
+                "Product",
+                "Unit Price",
+                "Quantity",
+                "Subtotal",
+            ]
+        ]
+
+        for item in order.items.all():
+            table_data.append(
+                [
+                    escape(item.product_name),
+                    f"BDT {item.price}",
+                    str(item.quantity),
+                    f"BDT {item.subtotal}",
+                ]
+            )
+
+        table_data.append(
+            [
+                "",
+                "",
+                "Product Subtotal",
+                f"BDT {product_subtotal}",
+            ]
+        )
+
+        table_data.append(
+            [
+                "",
+                "",
+                "Delivery Charge",
+                "FREE"
+                if delivery_charge == Decimal("0.00")
+                else f"BDT {delivery_charge}",
+            ]
+        )
+
+        table_data.append(
+            [
+                "",
+                "",
+                "Grand Total",
+                f"BDT {grand_total}",
+            ]
+        )
+
+        table = Table(
+            table_data,
+            colWidths=[230, 100, 90, 100],
+        )
+
+        table.setStyle(
+            TableStyle(
+                [
+                    ("BACKGROUND", (0, 0), (-1, 0), colors.lightgrey),
+                    ("TEXTCOLOR", (0, 0), (-1, 0), colors.black),
+                    ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                    ("ALIGN", (1, 1), (-1, -1), "CENTER"),
+                    ("ALIGN", (0, 0), (0, -1), "LEFT"),
+                    ("GRID", (0, 0), (-1, -1), 0.5, colors.black),
+                    ("FONTSIZE", (0, 0), (-1, -1), 9),
+                    ("BOTTOMPADDING", (0, 0), (-1, 0), 8),
+                    ("FONTNAME", (2, -3), (-1, -1), "Helvetica-Bold"),
+                    ("BACKGROUND", (2, -3), (-1, -1), colors.whitesmoke),
+                    ("BACKGROUND", (2, -1), (-1, -1), colors.lightgrey),
+                    ("FONTSIZE", (2, -1), (-1, -1), 10),
+                ]
+            )
+        )
+
+        elements.append(table)
+        elements.append(Spacer(1, 20))
+
+        note = """
+        <b>Note:</b> This payslip is generated for order confirmation and record keeping.
+        Delivery charge is free for orders above BDT 2000; otherwise, BDT 120 is added.
+        """
+        elements.append(Paragraph(note, styles["Normal"]))
+
+        doc.build(elements)
+
+        buffer.seek(0)
+
+        filename = f"sarn-order-payslip-{order.id}.pdf"
+
+        response = HttpResponse(buffer, content_type="application/pdf")
+        response["Content-Disposition"] = f'attachment; filename="{filename}"'
+
+        return response
+
+
 class AdminMonthlySalesReportView(APIView):
     permission_classes = [permissions.IsAdminUser]
+
+    def get_delivery_charge(self, product_subtotal):
+        if product_subtotal > Decimal("2000.00"):
+            return Decimal("0.00")
+
+        return Decimal("120.00")
 
     def get(self, request):
         today = timezone.now()
@@ -74,7 +256,11 @@ class AdminMonthlySalesReportView(APIView):
             created_at__month=month,
         ).order_by("created_at")
 
-        total_sales = sum(order.total_amount for order in orders)
+        total_product_sales = sum(order.total_amount for order in orders)
+        total_delivery_charge = sum(
+            self.get_delivery_charge(order.total_amount) for order in orders
+        )
+        total_sales = total_product_sales + total_delivery_charge
         total_orders = orders.count()
 
         buffer = BytesIO()
@@ -97,7 +283,9 @@ class AdminMonthlySalesReportView(APIView):
 
         summary = f"""
         <b>Total Delivered Orders:</b> {total_orders}<br/>
-        <b>Total Sales:</b> BDT {total_sales}
+        <b>Total Product Sales:</b> BDT {total_product_sales}<br/>
+        <b>Total Delivery Charges:</b> BDT {total_delivery_charge}<br/>
+        <b>Grand Total Sales:</b> BDT {total_sales}
         """
         elements.append(Paragraph(summary, styles["Normal"]))
         elements.append(Spacer(1, 18))
@@ -111,11 +299,16 @@ class AdminMonthlySalesReportView(APIView):
                 "City",
                 "Payment",
                 "Date",
-                "Total",
+                "Subtotal",
+                "Delivery",
+                "Grand Total",
             ]
         ]
 
         for order in orders:
+            delivery_charge = self.get_delivery_charge(order.total_amount)
+            grand_total = order.total_amount + delivery_charge
+
             table_data.append(
                 [
                     f"#{order.id}",
@@ -126,6 +319,10 @@ class AdminMonthlySalesReportView(APIView):
                     order.payment_method.replace("_", " ").title(),
                     order.created_at.strftime("%Y-%m-%d"),
                     f"BDT {order.total_amount}",
+                    "FREE"
+                    if delivery_charge == Decimal("0.00")
+                    else f"BDT {delivery_charge}",
+                    f"BDT {grand_total}",
                 ]
             )
 
@@ -140,12 +337,14 @@ class AdminMonthlySalesReportView(APIView):
                     "-",
                     "-",
                     "-",
+                    "-",
+                    "-",
                 ]
             )
 
         table = Table(
             table_data,
-            colWidths=[60, 130, 160, 90, 80, 110, 80, 90],
+            colWidths=[55, 100, 130, 80, 70, 100, 75, 80, 75, 85],
         )
 
         table.setStyle(
@@ -155,7 +354,7 @@ class AdminMonthlySalesReportView(APIView):
                     ("TEXTCOLOR", (0, 0), (-1, 0), colors.black),
                     ("ALIGN", (0, 0), (-1, -1), "CENTER"),
                     ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-                    ("FONTSIZE", (0, 0), (-1, -1), 8),
+                    ("FONTSIZE", (0, 0), (-1, -1), 7),
                     ("BOTTOMPADDING", (0, 0), (-1, 0), 8),
                     ("GRID", (0, 0), (-1, -1), 0.5, colors.black),
                 ]
