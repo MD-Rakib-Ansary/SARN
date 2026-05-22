@@ -40,9 +40,7 @@ export default function Navbar() {
       try {
         const user: StoredUser = JSON.parse(savedUser);
 
-        setIsAdmin(
-          user.is_staff === true || user.is_superuser === true
-        );
+        setIsAdmin(user.is_staff === true || user.is_superuser === true);
       } catch {
         setIsAdmin(false);
       }
@@ -105,8 +103,6 @@ export default function Navbar() {
             Home
           </Link>
 
-          
-
           <Link
             href="/products"
             className={`text-sm font-medium transition-colors ${
@@ -117,6 +113,19 @@ export default function Navbar() {
           >
             Shop All
           </Link>
+
+          {authChecked && isLoggedIn && !isAdmin && (
+            <Link
+              href="/my-orders"
+              className={`text-sm font-medium transition-colors ${
+                isActive("/my-orders")
+                  ? "text-[#8DA399]"
+                  : "text-[#2C302E]/70 hover:text-[#8DA399]"
+              }`}
+            >
+              My Orders
+            </Link>
+          )}
 
           {authChecked && isAdmin && (
             <Link

@@ -34,6 +34,31 @@ export type Product = {
   updated_at: string;
 };
 
+export type OrderItem = {
+  id: number;
+  product: number;
+  product_name: string;
+  price: string;
+  quantity: number;
+  subtotal: string;
+};
+
+export type Order = {
+  id: number;
+  username: string;
+  full_name: string;
+  email: string;
+  phone: string;
+  address: string;
+  city: string;
+  payment_method: string;
+  total_amount: string;
+  status: string;
+  items: OrderItem[];
+  created_at: string;
+  updated_at: string;
+};
+
 export async function getProducts(): Promise<Product[]> {
   const response = await fetch(`${getApiBaseUrl()}/products/`, {
     cache: "no-store",
@@ -121,6 +146,35 @@ export async function createOrder(data: any) {
       Authorization: `Bearer ${accessToken}`,
     },
     body: JSON.stringify(data),
+  });
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    throw result;
+  }
+
+  return result;
+}
+
+export async function getMyOrders(): Promise<Order[]> {
+  const accessToken =
+    typeof window !== "undefined"
+      ? localStorage.getItem("accessToken")
+      : null;
+
+  if (!accessToken) {
+    throw {
+      detail: "Please login to view your orders.",
+    };
+  }
+
+  const response = await fetch(`${getApiBaseUrl()}/orders/my-orders/`, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+    cache: "no-store",
   });
 
   const result = await response.json();
