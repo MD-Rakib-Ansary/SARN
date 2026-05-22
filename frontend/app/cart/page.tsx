@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ChangeEvent } from "react";
+import { useEffect, useState, type ChangeEvent } from "react";
 import Link from "next/link";
 import { useCart } from "@/context/CartContext";
 
@@ -23,10 +23,18 @@ export default function CartPage() {
   const [discount, setDiscount] = useState(0);
   const [promoMessage, setPromoMessage] = useState("");
   const [isUpdating, setIsUpdating] = useState<string | null>(null);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  useEffect(() => {
+    const accessToken = localStorage.getItem("accessToken");
+    setIsLoggedIn(Boolean(accessToken));
+  }, []);
 
   const subtotal = Number(cartTotal) || 0;
   const shipping = subtotal > 2000 ? 0 : 120;
   const total = Math.max(subtotal + shipping - discount, 0);
+
+  const checkoutHref = isLoggedIn ? "/checkout" : "/login?next=/checkout";
 
   const applyPromoCode = () => {
     const code = promoCode.trim().toUpperCase();
@@ -52,7 +60,10 @@ export default function CartPage() {
     setPromoCode(e.target.value);
   };
 
-  const handleUpdateQuantity = (productId: number | string, newQuantity: number) => {
+  const handleUpdateQuantity = (
+    productId: number | string,
+    newQuantity: number
+  ) => {
     if (newQuantity < 1) return;
 
     const safeId = String(productId);
@@ -312,13 +323,20 @@ export default function CartPage() {
                 </span>
               </div>
 
-              <Link href="/checkout">
+              {!isLoggedIn && (
+                <p className="mt-5 rounded-xl border border-yellow-200 bg-yellow-50 px-4 py-3 text-xs text-yellow-800">
+                  Please login before checkout. You can still browse products
+                  and manage your cart without logging in.
+                </p>
+              )}
+
+              <Link href={checkoutHref}>
                 <button
                   type="button"
                   className="w-full bg-[#2C302E] text-white py-4 rounded-full font-bold hover:bg-black transition mt-8 shadow-lg flex items-center justify-center gap-2"
                 >
                   <CreditCardIcon className="h-5 w-5" />
-                  Proceed to Checkout
+                  {isLoggedIn ? "Proceed to Checkout" : "Login to Checkout"}
                 </button>
               </Link>
 

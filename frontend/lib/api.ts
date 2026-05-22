@@ -6,17 +6,16 @@ export function getApiBaseUrl() {
     return DEFAULT_API_BASE_URL;
   }
 
-  const { hostname } = window.location;
-  const isLanFrontend = hostname !== "localhost" && hostname !== "127.0.0.1";
-  const isLocalApi =
-    DEFAULT_API_BASE_URL.includes("127.0.0.1") ||
-    DEFAULT_API_BASE_URL.includes("localhost");
+  const { hostname, protocol } = window.location;
 
-  if (isLanFrontend && isLocalApi) {
-    return `http://${hostname}:8000/api`;
+  const isLocalFrontend =
+    hostname === "localhost" || hostname === "127.0.0.1";
+
+  if (isLocalFrontend) {
+    return "http://127.0.0.1:8000/api";
   }
 
-  return DEFAULT_API_BASE_URL;
+  return `${protocol}//${hostname}:8000/api`;
 }
 
 export type Product = {
@@ -104,10 +103,22 @@ export async function loginUser(data: {
 }
 
 export async function createOrder(data: any) {
+  const accessToken =
+    typeof window !== "undefined"
+      ? localStorage.getItem("accessToken")
+      : null;
+
+  if (!accessToken) {
+    throw {
+      detail: "Please login before placing an order.",
+    };
+  }
+
   const response = await fetch(`${getApiBaseUrl()}/orders/create/`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
     },
     body: JSON.stringify(data),
   });

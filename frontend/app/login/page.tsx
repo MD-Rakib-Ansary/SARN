@@ -65,6 +65,17 @@ export default function LoginPage() {
     return data;
   };
 
+  const getSafeNextPath = () => {
+    const params = new URLSearchParams(window.location.search);
+    const nextPath = params.get("next");
+
+    if (nextPath && nextPath.startsWith("/") && !nextPath.startsWith("//")) {
+      return nextPath;
+    }
+
+    return "/";
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -95,7 +106,12 @@ export default function LoginPage() {
       );
 
       setTimeout(() => {
-        window.location.assign(isAdmin ? "/admin/dashboard" : "/");
+        if (isAdmin) {
+          window.location.assign("/admin/dashboard");
+          return;
+        }
+
+        window.location.assign(getSafeNextPath());
       }, 800);
     } catch (error: unknown) {
       setErrorMessage(getReadableError(error));

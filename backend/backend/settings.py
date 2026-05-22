@@ -33,12 +33,10 @@ SECRET_KEY = "django-insecure-tp01(z=)36h8^@14v(ijftu^8den)%kgu08-63=v*^si24^887
 # Keep True for local development only.
 DEBUG = True
 
-ALLOWED_HOSTS = [
-    "127.0.0.1",
-    "localhost",
-    "192.168.0.104",
-    "192.168.4.59",
-]
+# Local/demo setting:
+# Allows localhost, 127.0.0.1, and LAN IP access.
+# Do NOT use ALLOWED_HOSTS = ["*"] in production.
+ALLOWED_HOSTS = ["*"]
 
 
 # ============================================================
@@ -123,10 +121,12 @@ WSGI_APPLICATION = "backend.wsgi.application"
 
 # ============================================================
 # DATABASE
+# ============================================================
+
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+    "default": {
+        "ENGINE": "django.db.backends.sqlite3",
+        "NAME": BASE_DIR / "db.sqlite3",
     }
 }
 
@@ -191,10 +191,7 @@ REST_FRAMEWORK = {
     ),
 
     # Default is open access.
-    # We will manually protect selected APIs later, such as:
-    # - current user API
-    # - my orders API
-    # - admin order API
+    # Selected APIs are manually protected in their view classes.
     "DEFAULT_PERMISSION_CLASSES": (
         "rest_framework.permissions.AllowAny",
     ),
@@ -219,19 +216,19 @@ SIMPLE_JWT = {
 
 # ============================================================
 # CORS SETTINGS
-# This allows your Next.js frontend to call your Django backend.
+# This allows your Next.js frontend to call your Django backend
+# from localhost, 127.0.0.1, or LAN IP during local development.
 # ============================================================
 
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-    "http://192.168.0.104:3000",
-    "http://192.168.4.59:3000",
-]
+# Local/demo setting:
+# Allows frontend requests from changing localhost/LAN origins.
+# Do NOT use CORS_ALLOW_ALL_ORIGINS = True in production.
+CORS_ALLOW_ALL_ORIGINS = True
 
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
+    "http://192.168.0.101:3000",
     "http://192.168.0.104:3000",
     "http://192.168.4.59:3000",
 ]

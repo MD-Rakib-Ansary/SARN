@@ -28,7 +28,7 @@ from .serializers import (
 
 class OrderCreateView(generics.CreateAPIView):
     serializer_class = OrderCreateSerializer
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [permissions.IsAuthenticated]
 
 
 class MyOrderListView(generics.ListAPIView):

@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 
-import { getProducts, type Product } from "@/lib/api";
+import type { Product } from "@/lib/api";
+import { getApiBaseUrl } from "@/lib/api";
 import { useCart } from "@/context/CartContext";
 
 export default function ProductsPage() {
@@ -18,15 +19,48 @@ export default function ProductsPage() {
 
   useEffect(() => {
     async function loadProducts() {
+      const apiUrl = `${getApiBaseUrl()}/products/`;
+
       try {
         setLoading(true);
         setError("");
 
-        const data = await getProducts();
+        const controller = new AbortController();
+        const timeoutId = window.setTimeout(() => {
+          controller.abort();
+        }, 10000);
+
+        const response = await fetch(apiUrl, {
+          method: "GET",
+          cache: "no-store",
+          signal: controller.signal,
+        });
+
+        window.clearTimeout(timeoutId);
+
+        if (!response.ok) {
+          throw new Error(`API error ${response.status}: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+
+        if (!Array.isArray(data)) {
+          throw new Error("Invalid product response format.");
+        }
+
         setProducts(data);
-      } catch (err) {
-        console.error(err);
-        setError("Failed to load products from backend.");
+      } catch (err: any) {
+        console.error("Product loading error:", err);
+
+        if (err?.name === "AbortError") {
+          setError(
+            `Product loading timed out. Check whether backend is running at ${apiUrl}`
+          );
+        } else {
+          setError(
+            `Failed to load products from backend. API: ${apiUrl}`
+          );
+        }
       } finally {
         setLoading(false);
       }
@@ -107,7 +141,8 @@ export default function ProductsPage() {
 
         {error && (
           <div className="bg-red-50 rounded-2xl border border-red-200 p-8 text-center text-red-700">
-            {error}
+            <p className="font-semibold mb-2">Product loading failed.</p>
+            <p className="text-sm">{error}</p>
           </div>
         )}
 

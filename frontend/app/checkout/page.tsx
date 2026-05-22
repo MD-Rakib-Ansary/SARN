@@ -1,8 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeftIcon, CheckBadgeIcon, ShieldCheckIcon } from "@heroicons/react/24/outline";
+import {
+  ArrowLeftIcon,
+  CheckBadgeIcon,
+  ShieldCheckIcon,
+} from "@heroicons/react/24/outline";
 
 import { useCart } from "@/context/CartContext";
 import { createOrder } from "@/lib/api";
@@ -10,6 +14,7 @@ import { createOrder } from "@/lib/api";
 export default function CheckoutPage() {
   const { cart, cartTotal, clearCart } = useCart();
 
+  const [authChecked, setAuthChecked] = useState(false);
   const [isOrdered, setIsOrdered] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
@@ -22,6 +27,17 @@ export default function CheckoutPage() {
     city: "Dhaka",
     address: "",
   });
+
+  useEffect(() => {
+    const accessToken = localStorage.getItem("accessToken");
+
+    if (!accessToken) {
+      window.location.assign("/login?next=/checkout");
+      return;
+    }
+
+    setAuthChecked(true);
+  }, []);
 
   const shippingFee = cartTotal > 2000 ? 0 : 120;
   const displayTotal = cartTotal + shippingFee;
@@ -51,23 +67,33 @@ export default function CheckoutPage() {
     }
 
     if (error?.full_name) {
-      return `Full name: ${Array.isArray(error.full_name) ? error.full_name[0] : error.full_name}`;
+      return `Full name: ${
+        Array.isArray(error.full_name) ? error.full_name[0] : error.full_name
+      }`;
     }
 
     if (error?.email) {
-      return `Email: ${Array.isArray(error.email) ? error.email[0] : error.email}`;
+      return `Email: ${
+        Array.isArray(error.email) ? error.email[0] : error.email
+      }`;
     }
 
     if (error?.phone) {
-      return `Phone: ${Array.isArray(error.phone) ? error.phone[0] : error.phone}`;
+      return `Phone: ${
+        Array.isArray(error.phone) ? error.phone[0] : error.phone
+      }`;
     }
 
     if (error?.address) {
-      return `Address: ${Array.isArray(error.address) ? error.address[0] : error.address}`;
+      return `Address: ${
+        Array.isArray(error.address) ? error.address[0] : error.address
+      }`;
     }
 
     if (error?.city) {
-      return `City: ${Array.isArray(error.city) ? error.city[0] : error.city}`;
+      return `City: ${
+        Array.isArray(error.city) ? error.city[0] : error.city
+      }`;
     }
 
     return "Order failed. Please check your cart and customer information.";
@@ -116,6 +142,16 @@ export default function CheckoutPage() {
     }
   };
 
+  if (!authChecked) {
+    return (
+      <div className="min-h-[70vh] flex items-center justify-center bg-white">
+        <div className="bg-[#EFEBE4]/40 border border-[#EFEBE4] rounded-2xl px-8 py-6 text-[#2C302E]/70">
+          Checking login status...
+        </div>
+      </div>
+    );
+  }
+
   if (isOrdered) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-4 text-center bg-white">
@@ -152,7 +188,10 @@ export default function CheckoutPage() {
           Your cart is empty
         </h2>
 
-        <Link href="/products" className="text-[#8DA399] font-medium hover:underline">
+        <Link
+          href="/products"
+          className="text-[#8DA399] font-medium hover:underline"
+        >
           Continue Shopping
         </Link>
       </div>
@@ -266,7 +305,9 @@ export default function CheckoutPage() {
                   disabled={loading}
                   className="w-full bg-[#2C302E] text-white py-4 rounded-full font-bold hover:bg-black transition shadow-lg disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  {loading ? "Placing Order..." : `Place Order • ৳ ${displayTotal}`}
+                  {loading
+                    ? "Placing Order..."
+                    : `Place Order • ৳ ${displayTotal}`}
                 </button>
               </div>
             </form>
@@ -311,7 +352,8 @@ export default function CheckoutPage() {
                 </div>
 
                 <p className="text-xs text-white/40 pt-4">
-                  Note: Backend currently stores product subtotal only. Shipping fee is shown in frontend summary.
+                  Note: Backend currently stores product subtotal only. Shipping
+                  fee is shown in frontend summary.
                 </p>
               </div>
             </div>
