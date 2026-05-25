@@ -1,9 +1,11 @@
 from django.urls import path
 
 from .views import (
+    AdminDateWiseSalesReportView,
     AdminMonthlySalesReportView,
     AdminOrderListView,
     AdminOrderStatusUpdateView,
+    MyOrderCancelView,
     MyOrderListView,
     OrderCreateView,
     OrderPayslipDownloadView,
@@ -13,6 +15,11 @@ from .views import (
 urlpatterns = [
     path("create/", OrderCreateView.as_view(), name="order-create"),
     path("my-orders/", MyOrderListView.as_view(), name="my-orders"),
+    path(
+        "my-orders/<int:pk>/cancel/",
+        MyOrderCancelView.as_view(),
+        name="my-order-cancel",
+    ),
     path(
         "my-orders/<int:pk>/payslip/",
         OrderPayslipDownloadView.as_view(),
@@ -28,5 +35,10 @@ urlpatterns = [
         "admin/monthly-report/",
         AdminMonthlySalesReportView.as_view(),
         name="admin-monthly-sales-report",
+    ),
+    path(
+        "admin/date-wise-report/",
+        AdminDateWiseSalesReportView.as_view(),
+        name="admin-date-wise-sales-report",
     ),
 ]

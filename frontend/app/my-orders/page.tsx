@@ -6,9 +6,11 @@ import Link from "next/link";
 import {
   ArrowDownTrayIcon,
   ClipboardDocumentListIcon,
+  XCircleIcon,
 } from "@heroicons/react/24/outline";
 
 import {
+  cancelMyOrder,
   downloadOrderPayslip,
   getMyOrders,
   type Order,
@@ -48,11 +50,19 @@ const getPaymentLabel = (paymentMethod: string) => {
     .replace(/\b\w/g, (char) => char.toUpperCase());
 };
 
+const canCancelOrder = (status: string) => {
+  return status === "pending" || status === "processing";
+};
+
 export default function MyOrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
   const [downloadingOrderId, setDownloadingOrderId] = useState<number | null>(
+    null
+  );
+  const [cancellingOrderId, setCancellingOrderId] = useState<number | null>(
     null
   );
 
@@ -68,6 +78,7 @@ export default function MyOrdersPage() {
       try {
         setLoading(true);
         setErrorMessage("");
+        setSuccessMessage("");
 
         const data = await getMyOrders();
         setOrders(data);
@@ -87,12 +98,41 @@ export default function MyOrdersPage() {
     try {
       setDownloadingOrderId(orderId);
       setErrorMessage("");
+      setSuccessMessage("");
 
       await downloadOrderPayslip(orderId);
     } catch (error: any) {
       setErrorMessage(error?.detail || "Failed to download payslip.");
     } finally {
       setDownloadingOrderId(null);
+    }
+  };
+
+  const handleCancelOrder = async (orderId: number) => {
+    const confirmed = window.confirm(
+      "Are you sure you want to cancel this order?"
+    );
+
+    if (!confirmed) return;
+
+    try {
+      setCancellingOrderId(orderId);
+      setErrorMessage("");
+      setSuccessMessage("");
+
+      const updatedOrder = await cancelMyOrder(orderId);
+
+      setOrders((previousOrders) =>
+        previousOrders.map((order) =>
+          order.id === orderId ? updatedOrder : order
+        )
+      );
+
+      setSuccessMessage(`Order #${orderId} has been cancelled successfully.`);
+    } catch (error: any) {
+      setErrorMessage(error?.detail || "Failed to cancel order.");
+    } finally {
+      setCancellingOrderId(null);
     }
   };
 
@@ -114,9 +154,16 @@ export default function MyOrdersPage() {
             My Orders
           </h1>
           <p className="text-[#2C302E]/60 mt-2">
-            Track your order status and download your payslip.
+            Track your order status, download payslips, and cancel eligible
+            orders.
           </p>
         </div>
+
+        {successMessage && (
+          <div className="mb-8 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+            {successMessage}
+          </div>
+        )}
 
         {errorMessage && (
           <div className="mb-8 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -149,6 +196,9 @@ export default function MyOrdersPage() {
               const productSubtotal = Number(order.total_amount) || 0;
               const deliveryCharge = getDeliveryCharge(productSubtotal);
               const grandTotal = productSubtotal + deliveryCharge;
+              const isDownloading = downloadingOrderId === order.id;
+              const isCancelling = cancellingOrderId === order.id;
+              const orderCanBeCancelled = canCancelOrder(order.status);
 
               return (
                 <div
@@ -178,14 +228,24 @@ export default function MyOrdersPage() {
                       <button
                         type="button"
                         onClick={() => handleDownloadPayslip(order.id)}
-                        disabled={downloadingOrderId === order.id}
+                        disabled={isDownloading}
                         className="inline-flex items-center justify-center gap-2 bg-[#8DA399] text-white px-5 py-2.5 rounded-full text-sm font-bold hover:bg-[#2C302E] transition disabled:opacity-60 disabled:cursor-not-allowed"
                       >
                         <ArrowDownTrayIcon className="h-4 w-4" />
-                        {downloadingOrderId === order.id
-                          ? "Preparing..."
-                          : "Download Payslip"}
+                        {isDownloading ? "Preparing..." : "Download Payslip"}
                       </button>
+
+                      {orderCanBeCancelled && (
+                        <button
+                          type="button"
+                          onClick={() => handleCancelOrder(order.id)}
+                          disabled={isCancelling}
+                          className="inline-flex items-center justify-center gap-2 border border-red-200 bg-red-50 text-red-700 px-5 py-2.5 rounded-full text-sm font-bold hover:bg-red-100 transition disabled:opacity-60 disabled:cursor-not-allowed"
+                        >
+                          <XCircleIcon className="h-4 w-4" />
+                          {isCancelling ? "Cancelling..." : "Cancel Order"}
+                        </button>
+                      )}
                     </div>
                   </div>
 
@@ -205,7 +265,7 @@ export default function MyOrdersPage() {
                               {item.product_name}
                             </p>
                             <p className="text-[#2C302E]/50">
-                              Qty: {item.quantity} × BDT {item.price}
+                              Qty: {item.quantity} x BDT {item.price}
                             </p>
                           </div>
 
@@ -249,6 +309,13 @@ export default function MyOrdersPage() {
                     <p>
                       <b>Delivery Address:</b> {order.address}, {order.city}
                     </p>
+
+                    {!orderCanBeCancelled && order.status !== "cancelled" && (
+                      <p className="mt-2 text-xs text-[#2C302E]/50">
+                        Cancellation is only available while the order is pending
+                        or processing.
+                      </p>
+                    )}
                   </div>
                 </div>
               );

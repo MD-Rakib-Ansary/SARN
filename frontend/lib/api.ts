@@ -36,7 +36,7 @@ export type Product = {
 
 export type OrderItem = {
   id: number;
-  product: number;
+  product: number | null;
   product_name: string;
   price: string;
   quantity: number;
@@ -176,6 +176,37 @@ export async function getMyOrders(): Promise<Order[]> {
     },
     cache: "no-store",
   });
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    throw result;
+  }
+
+  return result;
+}
+
+export async function cancelMyOrder(orderId: number | string): Promise<Order> {
+  const accessToken =
+    typeof window !== "undefined"
+      ? localStorage.getItem("accessToken")
+      : null;
+
+  if (!accessToken) {
+    throw {
+      detail: "Please login before cancelling the order.",
+    };
+  }
+
+  const response = await fetch(
+    `${getApiBaseUrl()}/orders/my-orders/${orderId}/cancel/`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    }
+  );
 
   const result = await response.json();
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { type ChangeEvent, type FormEvent, useState } from "react";
 import Link from "next/link";
 
 import { getApiBaseUrl, loginUser } from "@/lib/api";
@@ -9,6 +9,24 @@ type LoginError = {
   detail?: string;
   message?: string;
   non_field_errors?: string[];
+};
+
+type UserData = {
+  id?: number;
+  username?: string;
+  email?: string;
+  is_staff?: boolean;
+  is_superuser?: boolean;
+};
+
+type LoginResult = {
+  access?: string;
+  refresh?: string;
+  user?: UserData;
+  username?: string;
+  email?: string;
+  is_staff?: boolean;
+  is_superuser?: boolean;
 };
 
 export default function LoginPage() {
@@ -21,11 +39,13 @@ export default function LoginPage() {
   const [successMessage, setSuccessMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
-    });
+  const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+
+    setFormData((previousData) => ({
+      ...previousData,
+      [name]: value,
+    }));
 
     setErrorMessage("");
     setSuccessMessage("");
@@ -37,67 +57,148 @@ export default function LoginPage() {
 
       if (apiError.detail) return apiError.detail;
       if (apiError.message) return apiError.message;
+
       if (apiError.non_field_errors?.length) {
         return apiError.non_field_errors[0];
       }
     }
 
-    if (typeof error === "string") return error;
+    if (error instanceof Error) {
+      return error.message;
+    }
+
+    if (typeof error === "string") {
+      return error;
+    }
 
     return "Login failed. Please check your username and password.";
   };
 
-  const fetchCurrentUser = async (accessToken: string) => {
-    const response = await fetch(`${getApiBaseUrl()}/accounts/me/`, {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
-      cache: "no-store",
-    });
+  const fetchCurrentUser = async (accessToken: string): Promise<UserData | null> => {
+    try {
+      const response = await fetch(`${getApiBaseUrl()}/accounts/me/`, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+        cache: "no-store",
+      });
 
-    const data = await response.json();
+      if (!response.ok) {
+        return null;
+      }
 
-    if (!response.ok) {
-      throw new Error("Login succeeded, but user profile could not be loaded.");
+      return response.json();
+    } catch {
+      return null;
     }
-
-    return data;
   };
 
   const getSafeNextPath = () => {
     const params = new URLSearchParams(window.location.search);
     const nextPath = params.get("next");
 
-    if (nextPath && nextPath.startsWith("/") && !nextPath.startsWith("//")) {
+    if (
+      nextPath &&
+      nextPath.startsWith("/") &&
+      !nextPath.startsWith("//") &&
+      nextPath !== "/login"
+    ) {
       return nextPath;
     }
 
     return "/";
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const clearOldLoginData = () => {
+    localStorage.removeItem("accessToken");
+    localStorage.removeItem("refreshToken");
+    localStorage.removeItem("sarn_user");
+  };
+
+  const saveUserData = (userData: UserData | null, fallbackUsername: string) => {
+    const safeUserData: UserData = userData || {
+      username: fallbackUsername,
+      is_staff: false,
+      is_superuser: false,
+    };
+
+    localStorage.setItem("sarn_user", JSON.stringify(safeUserData));
+
+    return safeUserData;
+  };
+
+  const redirectAfterLogin = (isAdmin: boolean) => {
+    const targetPath = isAdmin ? "/admin/dashboard" : getSafeNextPath();
+
+    window.dispatchEvent(new Event("sarn-auth-changed"));
+
+    setTimeout(() => {
+      window.location.replace(targetPath);
+    }, 100);
+  };
+
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+
+    if (loading) return;
+
+    const submittedForm = new FormData(e.currentTarget);
+
+    const usernameFromForm = String(submittedForm.get("username") || "").trim();
+    const passwordFromForm = String(submittedForm.get("password") || "");
+
+    const username = usernameFromForm || formData.username.trim();
+    const password = passwordFromForm || formData.password;
+
+    if (!username || !password) {
+      setErrorMessage("Please enter both username and password.");
+      return;
+    }
 
     try {
       setLoading(true);
       setErrorMessage("");
       setSuccessMessage("");
 
-      const result = await loginUser({
-        username: formData.username,
-        password: formData.password,
-      });
+      clearOldLoginData();
+
+      const result = (await loginUser({
+        username,
+        password,
+      })) as LoginResult;
+
+      if (!result?.access || !result?.refresh) {
+        throw new Error("Login response did not include valid tokens.");
+      }
 
       localStorage.setItem("accessToken", result.access);
       localStorage.setItem("refreshToken", result.refresh);
 
-      const userData = await fetchCurrentUser(result.access);
+      let userData: UserData | null = null;
 
-      localStorage.setItem("sarn_user", JSON.stringify(userData));
+      if (result.user) {
+        userData = result.user;
+      } else if (
+        result.username ||
+        result.email ||
+        typeof result.is_staff === "boolean" ||
+        typeof result.is_superuser === "boolean"
+      ) {
+        userData = {
+          username: result.username || username,
+          email: result.email,
+          is_staff: result.is_staff === true,
+          is_superuser: result.is_superuser === true,
+        };
+      } else {
+        userData = await fetchCurrentUser(result.access);
+      }
+
+      const savedUser = saveUserData(userData, username);
 
       const isAdmin =
-        userData.is_staff === true || userData.is_superuser === true;
+        savedUser.is_staff === true || savedUser.is_superuser === true;
 
       setSuccessMessage(
         isAdmin
@@ -105,17 +206,10 @@ export default function LoginPage() {
           : "Login successful. Redirecting..."
       );
 
-      setTimeout(() => {
-        if (isAdmin) {
-          window.location.assign("/admin/dashboard");
-          return;
-        }
-
-        window.location.assign(getSafeNextPath());
-      }, 800);
+      redirectAfterLogin(isAdmin);
     } catch (error: unknown) {
+      clearOldLoginData();
       setErrorMessage(getReadableError(error));
-    } finally {
       setLoading(false);
     }
   };
@@ -144,18 +238,21 @@ export default function LoginPage() {
             </div>
           )}
 
-          <form method="post" onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-[#2C302E] mb-2">
                 Username
               </label>
+
               <input
                 type="text"
                 name="username"
                 required
+                autoComplete="username"
                 value={formData.username}
                 onChange={handleChange}
-                className="w-full px-4 py-3 border border-[#EFEBE4] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#8DA399]"
+                disabled={loading}
+                className="w-full px-4 py-3 border border-[#EFEBE4] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#8DA399] disabled:bg-gray-50 disabled:cursor-not-allowed"
                 placeholder="Enter your username"
               />
             </div>
@@ -164,13 +261,16 @@ export default function LoginPage() {
               <label className="block text-sm font-medium text-[#2C302E] mb-2">
                 Password
               </label>
+
               <input
                 type="password"
                 name="password"
                 required
+                autoComplete="current-password"
                 value={formData.password}
                 onChange={handleChange}
-                className="w-full px-4 py-3 border border-[#EFEBE4] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#8DA399]"
+                disabled={loading}
+                className="w-full px-4 py-3 border border-[#EFEBE4] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#8DA399] disabled:bg-gray-50 disabled:cursor-not-allowed"
                 placeholder="Enter your password"
               />
             </div>
