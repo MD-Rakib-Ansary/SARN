@@ -42,7 +42,12 @@ export default function AdminOrdersPage() {
   const [filter, setFilter] = useState("all");
   const [loading, setLoading] = useState(true);
   const [updatingOrderId, setUpdatingOrderId] = useState<number | null>(null);
+
   const [downloadingReport, setDownloadingReport] = useState(false);
+  const [downloadingDateReport, setDownloadingDateReport] = useState(false);
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
 
@@ -225,6 +230,78 @@ export default function AdminOrdersPage() {
     }
   };
 
+  const handleDownloadDateWiseReport = async () => {
+    try {
+      setDownloadingDateReport(true);
+      setErrorMessage("");
+      setSuccessMessage("");
+
+      const accessToken = localStorage.getItem("accessToken");
+
+      if (!accessToken) {
+        setErrorMessage("You must login as an admin to download the report.");
+        return;
+      }
+
+      if (!startDate || !endDate) {
+        setErrorMessage("Please select both start date and end date.");
+        return;
+      }
+
+      if (startDate > endDate) {
+        setErrorMessage("Start date cannot be after end date.");
+        return;
+      }
+
+      const response = await fetch(
+        `${getApiBaseUrl()}/orders/admin/date-wise-report/?start_date=${startDate}&end_date=${endDate}`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        }
+      );
+
+      if (response.status === 401) {
+        throw new Error("Unauthorized. Please login again.");
+      }
+
+      if (response.status === 403) {
+        throw new Error("Permission denied. Please login using an admin account.");
+      }
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+
+        throw new Error(
+          errorData?.detail || "Failed to download date-wise sales report."
+        );
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `SARN_Date_Wise_Sales_Report_${startDate}_to_${endDate}.pdf`;
+
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+
+      window.URL.revokeObjectURL(url);
+
+      setSuccessMessage("Date-wise sales report downloaded successfully.");
+    } catch (error: any) {
+      setErrorMessage(
+        error.message || "Failed to download date-wise sales report."
+      );
+    } finally {
+      setDownloadingDateReport(false);
+    }
+  };
+
   const filteredOrders = useMemo(() => {
     if (filter === "all") {
       return orders;
@@ -364,7 +441,7 @@ export default function AdminOrdersPage() {
 
   return (
     <div className="space-y-8">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
         <div>
           <h1 className="text-3xl font-bold text-[#2C302E]">Orders</h1>
           <p className="text-[#2C302E]/70 mt-1">
@@ -372,16 +449,59 @@ export default function AdminOrdersPage() {
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={handleDownloadMonthlyReport}
-          disabled={downloadingReport}
-          className="rounded-xl bg-[#2C302E] px-5 py-3 text-sm font-semibold text-white hover:bg-[#8DA399] transition disabled:opacity-60 disabled:cursor-not-allowed"
-        >
-          {downloadingReport
-            ? "Downloading Report..."
-            : "Download Monthly Sales Report"}
-        </button>
+        <div className="flex flex-col gap-3 xl:items-end">
+          <button
+            type="button"
+            onClick={handleDownloadMonthlyReport}
+            disabled={downloadingReport}
+            className="rounded-xl bg-[#2C302E] px-5 py-3 text-sm font-semibold text-white hover:bg-[#8DA399] transition disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            {downloadingReport
+              ? "Downloading Report..."
+              : "Download Monthly Sales Report"}
+          </button>
+
+          <div className="rounded-2xl border border-[#EFEBE4] bg-white p-4 shadow-sm">
+            <p className="mb-3 text-sm font-bold text-[#2C302E]">
+              Date-wise Sales Report
+            </p>
+
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-[#2C302E]/60">
+                  Start Date
+                </label>
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="rounded-xl border border-[#EFEBE4] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#8DA399]"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-[#2C302E]/60">
+                  End Date
+                </label>
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="rounded-xl border border-[#EFEBE4] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#8DA399]"
+                />
+              </div>
+
+              <button
+                type="button"
+                onClick={handleDownloadDateWiseReport}
+                disabled={downloadingDateReport}
+                className="rounded-xl bg-[#8DA399] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#2C302E] transition disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {downloadingDateReport ? "Downloading..." : "Download"}
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
 
       {successMessage && (
