@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
 import Link from "next/link";
 import {
   ArrowLeftIcon,
@@ -10,6 +10,9 @@ import {
 
 import { useCart } from "@/context/CartContext";
 import { createOrder, downloadOrderPayslip } from "@/lib/api";
+
+const VALID_PROMO_CODE = "rakib10";
+const PROMO_DISCOUNT_RATE = 0.1;
 
 export default function CheckoutPage() {
   const { cart, cartTotal, clearCart } = useCart();
@@ -22,6 +25,7 @@ export default function CheckoutPage() {
 
   const [payslipLoading, setPayslipLoading] = useState(false);
   const [payslipError, setPayslipError] = useState("");
+  const [appliedPromoCode, setAppliedPromoCode] = useState("");
 
   const [formData, setFormData] = useState({
     full_name: "",
@@ -31,6 +35,12 @@ export default function CheckoutPage() {
     address: "",
   });
 
+  const subtotal = Number(cartTotal) || 0;
+  const shippingFee = subtotal > 2000 ? 0 : 120;
+  const promoDiscount =
+    appliedPromoCode === VALID_PROMO_CODE ? subtotal * PROMO_DISCOUNT_RATE : 0;
+  const displayTotal = Math.max(subtotal - promoDiscount + shippingFee, 0);
+
   useEffect(() => {
     const accessToken = localStorage.getItem("accessToken");
 
@@ -39,14 +49,29 @@ export default function CheckoutPage() {
       return;
     }
 
+    const savedPromoCode = localStorage.getItem("sarnPromoCode") || "";
+
+    if (savedPromoCode.toLowerCase() === VALID_PROMO_CODE) {
+      setAppliedPromoCode(VALID_PROMO_CODE);
+    } else {
+      setAppliedPromoCode("");
+    }
+
     setAuthChecked(true);
   }, []);
 
-  const shippingFee = cartTotal > 2000 ? 0 : 120;
-  const displayTotal = cartTotal + shippingFee;
+  useEffect(() => {
+    if (appliedPromoCode === VALID_PROMO_CODE) {
+      localStorage.setItem("sarnPromoCode", VALID_PROMO_CODE);
+      localStorage.setItem("sarnPromoDiscount", String(promoDiscount));
+      localStorage.setItem("sarnCartSubtotal", String(subtotal));
+      localStorage.setItem("sarnShipping", String(shippingFee));
+      localStorage.setItem("sarnCartTotal", String(displayTotal));
+    }
+  }, [appliedPromoCode, promoDiscount, subtotal, shippingFee, displayTotal]);
 
   const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+    e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
     setFormData({
       ...formData,
@@ -102,6 +127,14 @@ export default function CheckoutPage() {
     return "Order failed. Please check your cart and customer information.";
   };
 
+  const clearPromoData = () => {
+    localStorage.removeItem("sarnPromoCode");
+    localStorage.removeItem("sarnPromoDiscount");
+    localStorage.removeItem("sarnCartSubtotal");
+    localStorage.removeItem("sarnShipping");
+    localStorage.removeItem("sarnCartTotal");
+  };
+
   const handleDownloadPayslip = async () => {
     if (!orderId) {
       setPayslipError(
@@ -123,7 +156,7 @@ export default function CheckoutPage() {
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     if (cart.length === 0) {
@@ -158,6 +191,7 @@ export default function CheckoutPage() {
 
       setTimeout(() => {
         clearCart();
+        clearPromoData();
       }, 800);
     } catch (error: any) {
       console.error(error);
@@ -349,7 +383,7 @@ export default function CheckoutPage() {
                 >
                   {loading
                     ? "Placing Order..."
-                    : `Place Order • ৳ ${displayTotal}`}
+                    : `Place Order • ৳ ${displayTotal.toFixed(0)}`}
                 </button>
               </div>
             </form>
@@ -371,7 +405,10 @@ export default function CheckoutPage() {
                       {item.name} x{item.quantity}
                     </span>
                     <span className="font-medium">
-                      ৳ {Number(item.price) * Number(item.quantity)}
+                      ৳{" "}
+                      {(
+                        Number(item.price) * Number(item.quantity)
+                      ).toFixed(0)}
                     </span>
                   </div>
                 ))}
@@ -380,23 +417,33 @@ export default function CheckoutPage() {
               <div className="border-t border-white/10 pt-6 space-y-3">
                 <div className="flex justify-between text-sm opacity-70">
                   <span>Subtotal</span>
-                  <span>৳ {cartTotal}</span>
+                  <span>৳ {subtotal.toFixed(0)}</span>
                 </div>
+
+                {promoDiscount > 0 && (
+                  <div className="flex justify-between text-sm text-green-300">
+                    <span>Promo Discount (rakib10)</span>
+                    <span>- ৳ {promoDiscount.toFixed(0)}</span>
+                  </div>
+                )}
 
                 <div className="flex justify-between text-sm opacity-70">
                   <span>Shipping Fee</span>
                   <span>{shippingFee === 0 ? "FREE" : `৳ ${shippingFee}`}</span>
                 </div>
 
-                <div className="flex justify-between text-2xl font-serif pt-4">
+                <div className="flex justify-between text-2xl font-serif pt-4 border-t border-white/10">
                   <span>Total</span>
-                  <span className="text-[#C89F8B]">৳ {displayTotal}</span>
+                  <span className="text-[#C89F8B]">
+                    ৳ {displayTotal.toFixed(0)}
+                  </span>
                 </div>
 
-                <p className="text-xs text-white/40 pt-4">
-                  Note: Backend currently stores product subtotal only. Shipping
-                  fee is shown in frontend summary.
-                </p>
+                {appliedPromoCode === VALID_PROMO_CODE && (
+                  <p className="text-xs text-green-300 pt-3">
+                    Promo code rakib10 applied successfully.
+                  </p>
+                )}
               </div>
             </div>
           </div>

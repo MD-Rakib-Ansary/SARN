@@ -16,42 +16,114 @@ import {
   PlusIcon,
 } from "@heroicons/react/24/outline";
 
+const VALID_PROMO_CODE = "rakib10";
+const PROMO_DISCOUNT_RATE = 0.1;
+
 export default function CartPage() {
   const { cart, removeFromCart, updateQuantity, cartTotal } = useCart();
 
   const [promoCode, setPromoCode] = useState("");
+  const [appliedPromoCode, setAppliedPromoCode] = useState("");
   const [discount, setDiscount] = useState(0);
   const [promoMessage, setPromoMessage] = useState("");
   const [isUpdating, setIsUpdating] = useState<string | null>(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
-  useEffect(() => {
-    const accessToken = localStorage.getItem("accessToken");
-    setIsLoggedIn(Boolean(accessToken));
-  }, []);
-
   const subtotal = Number(cartTotal) || 0;
   const shipping = subtotal > 2000 ? 0 : 120;
-  const total = Math.max(subtotal + shipping - discount, 0);
+  const total = Math.max(subtotal - discount + shipping, 0);
 
   const checkoutHref = isLoggedIn ? "/checkout" : "/login?next=/checkout";
 
+  useEffect(() => {
+    const accessToken = localStorage.getItem("accessToken");
+    setIsLoggedIn(Boolean(accessToken));
+
+    const savedPromoCode = localStorage.getItem("sarnPromoCode") || "";
+
+    if (savedPromoCode.toLowerCase() === VALID_PROMO_CODE) {
+      setPromoCode(savedPromoCode);
+      setAppliedPromoCode(VALID_PROMO_CODE);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (appliedPromoCode === VALID_PROMO_CODE && subtotal > 0) {
+      const updatedDiscount = subtotal * PROMO_DISCOUNT_RATE;
+      setDiscount(updatedDiscount);
+
+      localStorage.setItem("sarnPromoCode", VALID_PROMO_CODE);
+      localStorage.setItem("sarnPromoDiscount", String(updatedDiscount));
+      localStorage.setItem("sarnCartSubtotal", String(subtotal));
+      localStorage.setItem("sarnShipping", String(shipping));
+      localStorage.setItem("sarnCartTotal", String(total));
+      return;
+    }
+
+    setDiscount(0);
+    localStorage.removeItem("sarnPromoCode");
+    localStorage.removeItem("sarnPromoDiscount");
+    localStorage.setItem("sarnCartSubtotal", String(subtotal));
+    localStorage.setItem("sarnShipping", String(shipping));
+    localStorage.setItem("sarnCartTotal", String(subtotal + shipping));
+  }, [appliedPromoCode, subtotal, shipping, total]);
+
   const applyPromoCode = () => {
-    const code = promoCode.trim().toUpperCase();
+    const code = promoCode.trim().toLowerCase();
 
     if (!code) {
+      setAppliedPromoCode("");
+      setDiscount(0);
       setPromoMessage("Please enter a promo code.");
-      setDiscount(0);
-    } else if (code === "SAVE10") {
-      setDiscount(subtotal * 0.1);
-      setPromoMessage("10% discount applied.");
-    } else if (code === "SAVE20") {
-      setDiscount(subtotal * 0.2);
-      setPromoMessage("20% discount applied.");
-    } else {
-      setDiscount(0);
-      setPromoMessage("Invalid promo code.");
+
+      setTimeout(() => setPromoMessage(""), 3000);
+      return;
     }
+
+    if (code === VALID_PROMO_CODE) {
+      const discountAmount = subtotal * PROMO_DISCOUNT_RATE;
+
+      setAppliedPromoCode(VALID_PROMO_CODE);
+      setDiscount(discountAmount);
+      setPromoMessage("Promo code applied. You received 10% discount.");
+
+      localStorage.setItem("sarnPromoCode", VALID_PROMO_CODE);
+      localStorage.setItem("sarnPromoDiscount", String(discountAmount));
+      localStorage.setItem("sarnCartSubtotal", String(subtotal));
+      localStorage.setItem("sarnShipping", String(shipping));
+      localStorage.setItem(
+        "sarnCartTotal",
+        String(Math.max(subtotal - discountAmount + shipping, 0))
+      );
+
+      setTimeout(() => setPromoMessage(""), 3000);
+      return;
+    }
+
+    setAppliedPromoCode("");
+    setDiscount(0);
+    setPromoMessage("Invalid promo code. Please use a valid promo code.");
+
+    localStorage.removeItem("sarnPromoCode");
+    localStorage.removeItem("sarnPromoDiscount");
+    localStorage.setItem("sarnCartSubtotal", String(subtotal));
+    localStorage.setItem("sarnShipping", String(shipping));
+    localStorage.setItem("sarnCartTotal", String(subtotal + shipping));
+
+    setTimeout(() => setPromoMessage(""), 3000);
+  };
+
+  const removePromoCode = () => {
+    setPromoCode("");
+    setAppliedPromoCode("");
+    setDiscount(0);
+    setPromoMessage("Promo code removed.");
+
+    localStorage.removeItem("sarnPromoCode");
+    localStorage.removeItem("sarnPromoDiscount");
+    localStorage.setItem("sarnCartSubtotal", String(subtotal));
+    localStorage.setItem("sarnShipping", String(shipping));
+    localStorage.setItem("sarnCartTotal", String(subtotal + shipping));
 
     setTimeout(() => setPromoMessage(""), 3000);
   };
@@ -251,7 +323,7 @@ export default function CartPage() {
 
           <div className="lg:w-1/3">
             <div className="bg-white rounded-3xl shadow-md border border-[#EFEBE4] p-8 sticky top-24">
-              <h2 className="text-xl font-serif text-blue-500 mb-6 text-left">
+              <h2 className="text-xl font-serif text-[#2C302E] mb-6 text-left">
                 Order Summary
               </h2>
 
@@ -262,7 +334,7 @@ export default function CartPage() {
                     placeholder="Promo Code"
                     value={promoCode}
                     onChange={handlePromoChange}
-                    className="flex-1 px-4 py-2 bg-[#EFEBE4]/30 border border-[#EFEBE4] rounded-full text-sm focus:outline-none"
+                    className="flex-1 px-4 py-2 bg-[#EFEBE4]/30 border border-[#EFEBE4] rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-[#8DA399]"
                   />
 
                   <button
@@ -277,13 +349,31 @@ export default function CartPage() {
                 {promoMessage && (
                   <p
                     className={`text-[11px] mt-2 text-left ${
-                      promoMessage.includes("applied")
+                      promoMessage.toLowerCase().includes("applied") ||
+                      promoMessage.toLowerCase().includes("removed")
                         ? "text-green-600"
                         : "text-red-600"
                     }`}
                   >
                     {promoMessage}
                   </p>
+                )}
+
+                {appliedPromoCode === VALID_PROMO_CODE && (
+                  <div className="mt-3 flex items-center justify-between rounded-xl border border-green-200 bg-green-50 px-4 py-2">
+                    <p className="text-xs text-green-700">
+                      Applied: <span className="font-bold">rakib10</span> —
+                      10% off
+                    </p>
+
+                    <button
+                      type="button"
+                      onClick={removePromoCode}
+                      className="text-xs font-semibold text-red-500 hover:text-red-700"
+                    >
+                      Remove
+                    </button>
+                  </div>
                 )}
               </div>
 
@@ -294,6 +384,13 @@ export default function CartPage() {
                     ৳ {subtotal.toFixed(0)}
                   </span>
                 </div>
+
+                {discount > 0 && (
+                  <div className="flex justify-between text-green-600 text-sm">
+                    <span>Promo Discount (10%)</span>
+                    <span className="font-bold">- ৳ {discount.toFixed(0)}</span>
+                  </div>
+                )}
 
                 <div className="flex justify-between text-gray-600 text-sm">
                   <span>Shipping</span>
@@ -307,13 +404,6 @@ export default function CartPage() {
                     {shipping === 0 ? "FREE" : `৳ ${shipping}`}
                   </span>
                 </div>
-
-                {discount > 0 && (
-                  <div className="flex justify-between text-green-600 text-sm">
-                    <span>Discount</span>
-                    <span>- ৳ {discount.toFixed(0)}</span>
-                  </div>
-                )}
               </div>
 
               <div className="flex justify-between mt-6">
@@ -346,6 +436,10 @@ export default function CartPage() {
               >
                 Continue Shopping
               </Link>
+
+              <p className="mt-5 text-center text-[11px] text-[#2C302E]/40">
+                Promo code: rakib10 gives 10% discount on product subtotal.
+              </p>
             </div>
           </div>
         </div>

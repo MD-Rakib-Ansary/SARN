@@ -57,9 +57,7 @@ export default function ProductsPage() {
             `Product loading timed out. Check whether backend is running at ${apiUrl}`
           );
         } else {
-          setError(
-            `Failed to load products from backend. API: ${apiUrl}`
-          );
+          setError(`Failed to load products from backend. API: ${apiUrl}`);
         }
       } finally {
         setLoading(false);
@@ -107,7 +105,7 @@ export default function ProductsPage() {
             Our Collection
           </h1>
           <p className="text-[#2C302E]/60 mt-2">
-            Premium essentials for your baby's wellbeing.
+            Premium essentials for your baby&apos;s wellbeing.
           </p>
         </div>
       </div>
@@ -153,7 +151,7 @@ export default function ProductsPage() {
         )}
 
         {!loading && !error && filteredProducts.length > 0 && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8 items-stretch">
             {filteredProducts.map((product) => {
               const imageSrc = product.image_url || product.image || "";
               const isAdded = addedProductId === product.id;
@@ -162,10 +160,10 @@ export default function ProductsPage() {
               return (
                 <div
                   key={product.id}
-                  className="bg-white rounded-[2rem] p-5 border border-[#EFEBE4] group transition-all duration-300 hover:shadow-xl hover:shadow-[#8DA399]/10"
+                  className="bg-white rounded-[2rem] p-5 border border-[#EFEBE4] group transition-all duration-300 hover:shadow-xl hover:shadow-[#8DA399]/10 flex h-full min-h-[560px] flex-col"
                 >
-                  <Link href={`/products/${product.id}`}>
-                    <div className="aspect-square bg-[#EFEBE4]/40 rounded-[1.5rem] mb-6 overflow-hidden relative flex items-center justify-center">
+                  <Link href={`/products/${product.id}`} className="block">
+                    <div className="h-[260px] w-full bg-[#EFEBE4]/40 rounded-[1.5rem] mb-6 overflow-hidden relative flex items-center justify-center">
                       {imageSrc ? (
                         <img
                           src={imageSrc}
@@ -180,46 +178,50 @@ export default function ProductsPage() {
                     </div>
                   </Link>
 
-                  <Link href={`/products/${product.id}`}>
-                    <h3 className="text-xl font-serif font-bold text-[#2C302E] hover:text-[#8DA399] transition-colors">
-                      {product.name}
-                    </h3>
-                  </Link>
+                  <div className="flex flex-1 flex-col">
+                    <Link href={`/products/${product.id}`}>
+                      <h3 className="text-xl font-serif font-bold text-[#2C302E] hover:text-[#8DA399] transition-colors leading-tight min-h-[60px]">
+                        {product.name}
+                      </h3>
+                    </Link>
 
-                  <p className="text-sm text-[#2C302E]/50 mt-2 line-clamp-2">
-                    {product.description}
-                  </p>
+                    <p className="text-sm text-[#2C302E]/50 mt-2 line-clamp-2 min-h-[42px]">
+                      {product.description}
+                    </p>
 
-                  <div className="flex justify-between items-center mt-6 gap-3">
-                    <div>
-                      <span className="text-2xl font-bold text-[#2C302E]">
-                        ৳ {Number(product.price).toFixed(0)}
-                      </span>
+                    <div className="mt-auto pt-6">
+                      <div className="flex justify-between items-center gap-3">
+                        <div className="min-w-0">
+                          <span className="block text-2xl font-bold text-[#2C302E]">
+                            ৳ {Number(product.price).toFixed(0)}
+                          </span>
 
-                      {product.old_price && (
-                        <span className="block text-sm text-[#2C302E]/40 line-through">
-                          ৳ {Number(product.old_price).toFixed(0)}
-                        </span>
-                      )}
+                          <span className="block min-h-[20px] text-sm text-[#2C302E]/40 line-through">
+                            {product.old_price
+                              ? `৳ ${Number(product.old_price).toFixed(0)}`
+                              : ""}
+                          </span>
+                        </div>
+
+                        <button
+                          type="button"
+                          disabled={isOutOfStock}
+                          onClick={() => handleAddToCart(product)}
+                          className="min-w-[128px] bg-[#8DA399] text-white px-4 py-2 rounded-xl hover:bg-[#2C302E] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {isOutOfStock
+                            ? "Out of Stock"
+                            : isAdded
+                            ? "Added"
+                            : "Add to Cart"}
+                        </button>
+                      </div>
+
+                      <p className="text-xs text-[#2C302E]/40 mt-4">
+                        Stock: {product.stock}
+                      </p>
                     </div>
-
-                    <button
-                      type="button"
-                      disabled={isOutOfStock}
-                      onClick={() => handleAddToCart(product)}
-                      className="bg-[#8DA399] text-white px-4 py-2 rounded-xl hover:bg-[#2C302E] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {isOutOfStock
-                        ? "Out of Stock"
-                        : isAdded
-                        ? "Added"
-                        : "Add to Cart"}
-                    </button>
                   </div>
-
-                  <p className="text-xs text-[#2C302E]/40 mt-4">
-                    Stock: {product.stock}
-                  </p>
                 </div>
               );
             })}
